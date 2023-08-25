@@ -8,6 +8,8 @@ from torchvision.datasets import ImageFolder
 from torchvision.transforms import transforms
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
+import os
+import shutil
 
 # kiểm tra xem có sẵn GPU (CUDA) để sử dụng hay không. Nếu có, mô hình sẽ được đặt trên GPU
 # để tăng tốc độ tính toán. Nếu không, nó sẽ sử dụng CPU.
@@ -33,20 +35,21 @@ train_dataset = ImageFolder(root=train_dir, transform=transform)
 #tải dữ liệu theo các lô (batch) có kích thước 16 và xáo trộn dữ liệu trước khi đưa vào mô hình
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
 
-#Tương tự, đây là đối tượng DataLoader cho dữ liệu kiểm tra.
+#Tương tự, đối tượng DataLoader cho dữ liệu kiểm tra.
 #Không cần xáo trộn dữ liệu kiểm tra (shuffle=False) vì muốn giữ nguyên thứ tự của các ảnh trong quá trình kiểm tra.
 test_dataset = ImageFolder(root=test_dir, transform=transform)
 
-#ấy ra danh sách các lớp (classes) có trong tập dữ liệu kiểm tra.
+#lấy ra danh sách các lớp (classes) có trong tập dữ liệu kiểm tra.
 test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-#là các tên của các loại khuyết tật mà bạn muốn mô hình dự đoán.
+#là các tên của các loại khuyết tật muốn mô hình dự đoán.
 #Phải được định nghĩa trong thư mục test
 class_names = test_dataset.classes
 #in ra thử xem có dự đoán chính xác tên không
 #print(class_names)
 
 # Autoencoder
+#tạo lớp kế thừ lớp nn.module để dùng các hàm của nós
 class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
@@ -147,20 +150,56 @@ with torch.no_grad():
         encoding = autoencoder.encoder(img)
         class_encodings[label.item()].append(encoding.cpu().numpy().ravel())
 
-class_means = []
-class_mses = []
-for i in range(6):
-    #np.mean là tính trung bình theo 1 trục cụ thể
-    class_means.append(np.mean(class_encodings[i]))
-    #tính bình phương sai số (độ lệch chuẩn) mean squared error
-    #tham khảo thêm: https://websitehcm.com/mean-squared-error/
-    class_mse = np.mean((class_encodings[i] - class_means[i])**2)
-    class_mses.append(class_mse)
+# class_means = []
+# class_mses = []
+# for i in range(6):
+#     #np.mean là tính trung bình theo 1 trục cụ thể
+#     class_means.append(np.mean(class_encodings[i]))
+#     #tính bình phương sai số (độ lệch chuẩn) mean squared error
+#     #tham khảo thêm: https://websitehcm.com/mean-squared-error/
+#     class_mse = np.mean((class_encodings[i] - class_means[i])**2)
+#     class_mses.append(class_mse)
 
-plt.figure(figsize=(8, 6))
-plt.bar(np.arange(6)-0.2, class_means, width=0.4, label='Mean', alpha=0.5)
-plt.bar(np.arange(6)+0.2, class_mses, width=0.4, label='MSE', alpha=0.5)
-plt.xticks(range(6), class_names, rotation=90)
-plt.legend()
-plt.title("Class Encodings Mean and MSE Comparison")
-plt.show()
+# plt.figure(figsize=(8, 6))
+# plt.bar(np.arange(6)-0.2, class_means, width=0.4, label='Mean', alpha=0.5)
+# plt.bar(np.arange(6)+0.2, class_mses, width=0.4, label='MSE', alpha=0.5)
+# plt.xticks(range(6), class_names, rotation=90)
+# plt.legend()
+# plt.title("Class Encodings Mean and MSE Comparison")
+# plt.show()
+
+
+# Đường dẫn đến thư mục gốc và thư mục đích cho ảnh khuyết tật
+source_test_dir = ''
+defect_images_dir = 'defect_images'
+normal_images_dir = 'normal_images'
+
+# Tạo thư mục đích nếu chưa tồn tại
+# os.makedirs(defect_images_dir, exist_ok=True)
+# os.makedirs(normal_images_dir, exist_ok=True)
+
+def detect_and_save_anomalies(autoencoder, test_loader, threshold, save_dir):
+    os.makedirs(save_dir, exist_ok=True)
+    autoencoder.eval()
+    
+    with torch.no_grad():
+        for i, data in enumerate(test_loader):
+            img, _ = data
+            img = Variable(img).to(device)
+            outputs = autoencoder(img)
+            loss = criterion(outputs, img)
+            
+            if loss.item() > threshold:
+                # Ảnh có bất thường vượt qua ngưỡng
+                img_filename = test_dataset.samples[i][0]
+                img_basename = os.path.basename(img_filename)
+                destination_path = os.path.join(save_dir, img_basename)
+                shutil.copy(img_filename, destination_path)
+                
+# Sử dụng hàm để phát hiện và lưu ảnh có bất thường
+anomaly_threshold = (test_loss/len(test_loader))  # Điều chỉnh ngưỡng dựa trên độ chính xác của mô hình
+anomaly_save_dir = 'anomaly_images'
+
+detect_and_save_anomalies(autoencoder, test_loader, anomaly_threshold, anomaly_save_dir)
+print("Phát hiện và lưu ảnh có bất thường hoàn thành.")
+

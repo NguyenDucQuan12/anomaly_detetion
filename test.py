@@ -10,6 +10,7 @@ from torch.autograd import Variable
 import matplotlib.pyplot as plt
 import os
 import shutil
+import datetime
 
 # kiểm tra xem có sẵn GPU (CUDA) để sử dụng hay không. Nếu có, mô hình sẽ được đặt trên GPU
 # để tăng tốc độ tính toán. Nếu không, nó sẽ sử dụng CPU.
@@ -198,8 +199,11 @@ def detect_and_save_anomalies(autoencoder, test_loader, threshold, save_dir):
                 
 # Sử dụng hàm để phát hiện và lưu ảnh có bất thường
 anomaly_threshold = (test_loss/len(test_loader))  # Điều chỉnh ngưỡng dựa trên độ chính xác của mô hình
-anomaly_save_dir = 'anomaly_images'
+now = datetime.datetime.now()
+today = str(now.strftime("%d-%m-%y %Hh%Mp%Ss"))
+name_folder = "anomaly_images"
+name_folder = today + " " + name_folder
 
-detect_and_save_anomalies(autoencoder, test_loader, anomaly_threshold, anomaly_save_dir)
+detect_and_save_anomalies(autoencoder, test_loader, anomaly_threshold, name_folder)
 print("Phát hiện và lưu ảnh có bất thường hoàn thành.")
 

@@ -8,8 +8,9 @@ import os
 import shutil
 import datetime
 
-# Trong lần chạy đầu tiên phải để load_model= false, bởi sau lần chạy
-# đầu tiên thì mới tạo được file checkpoint cho các lần tiếp theo sử dụng
+# Trong lần chạy đầu tiên phải để load_model= false và thay đổi number_epoch thành number_epoch_train để đạt
+# được test_loss ổn định, bởi sau lần chạy đầu tiên thì mới tạo được file checkpoint cho các lần tiếp theo sử dụng
+# Và sau lần chạy đầu tiên nhớ thay đổi các giá trị về như ban đầu
 number_epoch = 3
 number_epoch_train = 80
 load_model = True
@@ -95,7 +96,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.01)  # là tốc độ học (le
 if load_model:
     load_checkpoint(torch.load("file_checkpoint/"+filename))
 
-for epoch in range(3):
+for epoch in range(number_epoch):
     running_loss = 0.0
     if epoch % 3 == 0:
         checkpoint = {'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}
